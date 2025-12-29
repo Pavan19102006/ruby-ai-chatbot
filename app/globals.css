@@ -256,6 +256,7 @@ html, body {
   max-width: 768px;
   margin: 0 auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
   background: var(--bg-tertiary);
@@ -269,6 +270,43 @@ html, body {
   border-color: var(--text-muted);
 }
 
+/* Inline Image Preview */
+.image-preview-inline {
+  width: 100%;
+  position: relative;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+.image-preview-inline img {
+  max-width: 120px;
+  max-height: 90px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  object-fit: cover;
+}
+
+.image-preview-inline .remove-image-btn {
+  position: absolute;
+  top: -6px;
+  left: 108px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.image-preview-inline .remove-image-btn:hover {
+  background: #ef4444;
+}
+
 .input-wrapper textarea {
   flex: 1;
   background: transparent;
@@ -280,6 +318,7 @@ html, body {
   resize: none;
   max-height: 200px;
   font-family: inherit;
+  min-width: 0;
 }
 
 .input-wrapper textarea::placeholder {
@@ -361,5 +400,147 @@ html, body {
   .avatar {
     width: 32px;
     height: 32px;
+  }
+
+  .document-preview {
+    margin: 0 16px;
+  }
+}
+
+/* Document Upload Styles */
+.document-preview {
+  max-width: 768px;
+  margin: 0 auto 12px auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.document-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.document-info svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.document-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-size {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.remove-doc-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.remove-doc-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ef4444;
+}
+
+.upload-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.upload-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Message Image Styles */
+.message-image {
+  margin-bottom: 12px;
+}
+
+.message-image img {
+  max-width: 400px;
+  max-height: 300px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  object-fit: contain;
+}
+
+@media (max-width: 768px) {
+  .message-image img {
+    max-width: 100%;
+  }
+  
+  .image-preview-inline img {
+    max-width: 100px;
+  }
+  
+  .image-preview-inline .remove-image-btn {
+    left: 88px;
   }
 }

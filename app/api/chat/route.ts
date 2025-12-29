@@ -1,16 +1,62 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+interface MessageContent {
+  type: 'text' | 'image_url';
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string | MessageContent[];
+  image?: string;
+}
 
 export async function POST(req: Request) {
   try {
+    const groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY,
+    });
+
     const { messages } = await req.json();
 
+    // Check if any message has an image
+    const hasImage = messages.some((msg: ChatMessage) => msg.image);
+
+    // Format messages for the API
+    const formattedMessages = messages.map((msg: ChatMessage) => {
+      if (msg.image) {
+        // For vision model, format as multimodal content
+        return {
+          role: msg.role,
+          content: [
+            {
+              type: 'text',
+              text: msg.content as string,
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: msg.image,
+              },
+            },
+          ],
+        };
+      }
+      return {
+        role: msg.role,
+        content: msg.content,
+      };
+    });
+
+    // Use vision model if there's an image, otherwise use the text model
+    const model = hasImage ? 'llama-3.2-90b-vision-preview' : 'llama-3.3-70b-versatile';
+
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: messages,
+      model: model,
+      messages: formattedMessages,
       temperature: 0.7,
       max_tokens: 4096,
       stream: true,
