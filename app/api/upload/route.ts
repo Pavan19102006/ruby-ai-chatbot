@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
 export async function POST(req: NextRequest) {
@@ -20,11 +21,9 @@ export async function POST(req: NextRequest) {
     let extractedText = '';
 
     if (fileName.endsWith('.pdf')) {
-      // PDF parsing is temporarily disabled due to compatibility issues
-      return NextResponse.json(
-        { error: 'PDF upload is temporarily unavailable. Please use DOCX, TXT, or MD files.' },
-        { status: 400 }
-      );
+      // Parse PDF
+      const pdfData = await pdfParse(buffer);
+      extractedText = pdfData.text;
     } else if (fileName.endsWith('.docx')) {
       // Parse Word document
       const result = await mammoth.extractRawText({ buffer });
@@ -34,7 +33,7 @@ export async function POST(req: NextRequest) {
       extractedText = buffer.toString('utf-8');
     } else {
       return NextResponse.json(
-        { error: 'Unsupported file type. Please upload DOCX, TXT, or MD files.' },
+        { error: 'Unsupported file type. Please upload PDF, DOCX, TXT, or MD files.' },
         { status: 400 }
       );
     }
