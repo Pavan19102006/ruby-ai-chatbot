@@ -9,28 +9,21 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null;
 
     if (!file) {
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const fileName = file.name.toLowerCase();
-
     let extractedText = '';
 
     if (fileName.endsWith('.pdf')) {
-      // Parse PDF
       const pdfData = await pdfParse(buffer);
       extractedText = pdfData.text;
     } else if (fileName.endsWith('.docx')) {
-      // Parse Word document
       const result = await mammoth.extractRawText({ buffer });
       extractedText = result.value;
     } else if (fileName.endsWith('.txt') || fileName.endsWith('.md')) {
-      // Plain text files
       extractedText = buffer.toString('utf-8');
     } else {
       return NextResponse.json(
@@ -39,15 +32,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Clean up the extracted text
-    extractedText = extractedText
-      .replace(/\s+/g, ' ')
-      .trim();
+    extractedText = extractedText.replace(/\s+/g, ' ').trim();
 
-    // Truncate if too long (to fit in context window)
     const maxLength = 50000;
     if (extractedText.length > maxLength) {
-      extractedText = extractedText.substring(0, maxLength) + '... [Document truncated due to length]';
+      extractedText = extractedText.substring(0, maxLength) + '... [Document truncated]';
     }
 
     return NextResponse.json({
@@ -58,9 +47,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Upload error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process file' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to process file' }, { status: 500 });
   }
 }

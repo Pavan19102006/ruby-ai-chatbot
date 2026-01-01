@@ -3,9 +3,7 @@ import Groq from 'groq-sdk';
 interface MessageContent {
   type: 'text' | 'image_url';
   text?: string;
-  image_url?: {
-    url: string;
-  };
+  image_url?: { url: string };
 }
 
 interface ChatMessage {
@@ -16,47 +14,38 @@ interface ChatMessage {
 
 export async function POST(req: Request) {
   try {
-    const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
-    });
-
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const { messages } = await req.json();
 
-    // Check if any message has an image
     const hasImage = messages.some((msg: ChatMessage) => msg.image);
 
-    // Format messages for the API
     const formattedMessages = messages.map((msg: ChatMessage) => {
       if (msg.image) {
-        // For vision model, format as multimodal content
         return {
           role: msg.role,
           content: [
-            {
-              type: 'text',
-              text: msg.content as string,
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: msg.image,
-              },
-            },
+            { type: 'text', text: msg.content as string },
+            { type: 'image_url', image_url: { url: msg.image } },
           ],
         };
       }
-      return {
-        role: msg.role,
-        content: msg.content,
-      };
+      return { role: msg.role, content: msg.content };
     });
 
-    // Use vision model if there's an image, otherwise use the text model
     const model = hasImage ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile';
 
+    const systemMessage = {
+      role: 'system',
+      content: `You are Ruby, a helpful AI assistant. Guidelines:
+- Be concise and direct
+- For coding questions: provide code solution first, then brief explanations
+- Use markdown with proper code blocks (\`\`\`language)
+- Be friendly but efficient`,
+    };
+
     const completion = await groq.chat.completions.create({
-      model: model,
-      messages: formattedMessages,
+      model,
+      messages: [systemMessage, ...formattedMessages],
       temperature: 0.7,
       max_tokens: 4096,
       stream: true,

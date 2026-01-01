@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  image?: string; // Base64 image data
+  image?: string;
 }
 
 interface UploadedDocument {
@@ -15,8 +18,53 @@ interface UploadedDocument {
 }
 
 interface PastedImage {
-  data: string; // Base64 data URL
+  data: string;
   name: string;
+}
+
+// CodeBlock component with copy functionality
+function CodeBlock({ language, children }: { language: string; children: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [children]);
+
+  return (
+    <div className="code-block-container">
+      <div className="code-block-header">
+        <span className="code-language">{language || 'code'}</span>
+        <button className="copy-button" onClick={handleCopy}>
+          {copied ? (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Copied!
+            </>
+          ) : (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copy
+            </>
+          )}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={oneDark}
+        language={language || 'text'}
+        PreTag="div"
+        customStyle={{ margin: 0, borderRadius: '0 0 8px 8px', fontSize: '14px' }}
+      >
+        {children}
+      </SyntaxHighlighter>
+    </div>
+  );
 }
 
 export default function ChatBot() {
@@ -54,16 +102,10 @@ export default function ChatBot() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
+      if (!response.ok) throw new Error(data.error || 'Upload failed');
 
       setUploadedDoc({
         fileName: data.fileName,
@@ -75,14 +117,8 @@ export default function ChatBot() {
       alert(error instanceof Error ? error.message : 'Failed to upload document');
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  };
-
-  const removeDocument = () => {
-    setUploadedDoc(null);
   };
 
   const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
@@ -96,9 +132,8 @@ export default function ChatBot() {
         if (file) {
           const reader = new FileReader();
           reader.onload = (event) => {
-            const base64 = event.target?.result as string;
             setPastedImage({
-              data: base64,
+              data: event.target?.result as string,
               name: `screenshot-${Date.now()}.png`,
             });
           };
@@ -109,30 +144,24 @@ export default function ChatBot() {
     }
   };
 
-  const removeImage = () => {
-    setPastedImage(null);
-  };
-
   const sendMessage = async () => {
     if ((!input.trim() && !pastedImage) || isLoading) return;
 
-    // Build the user message with document context if available
     let userContent = input.trim();
     if (uploadedDoc && messages.length === 0) {
-      // Include document context only for the first message when a document is uploaded
       userContent = `[Document: ${uploadedDoc.fileName}]\n\nDocument Content:\n${uploadedDoc.text}\n\n---\n\nUser Question: ${userContent}`;
     }
 
-    // Add image description if there's a pasted image
     const currentImage = pastedImage?.data;
-    if (pastedImage) {
-      userContent = userContent || 'What do you see in this image?';
+    if (pastedImage && !userContent) {
+      userContent = 'What do you see in this image?';
     }
 
     const userMessage: Message = { role: 'user', content: userContent, image: currentImage };
     const displayMessage: Message = { role: 'user', content: input.trim() || 'What do you see in this image?', image: currentImage };
     const newMessages = [...messages, userMessage];
     const displayMessages = [...messages, displayMessage];
+
     setMessages(displayMessages);
     setInput('');
     setPastedImage(null);
@@ -151,7 +180,7 @@ export default function ChatBot() {
       const decoder = new TextDecoder();
       let assistantMessage = '';
 
-      setMessages([...newMessages, { role: 'assistant', content: '' }]);
+      setMessages([...displayMessages, { role: 'assistant', content: '' }]);
 
       while (reader) {
         const { done, value } = await reader.read();
@@ -170,30 +199,20 @@ export default function ChatBot() {
                 assistantMessage += parsed.content;
                 setMessages([...displayMessages, { role: 'assistant', content: assistantMessage }]);
               }
-            } catch {
-              // Skip invalid JSON
-            }
+            } catch { /* Skip invalid JSON */ }
           }
         }
       }
     } catch (error) {
       console.error('Error:', error);
-      setMessages([
-        ...displayMessages,
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
-      ]);
+      setMessages([...displayMessages, { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Allow all keyboard shortcuts (Ctrl/Cmd + C, V, X, A, Z, etc.)
-    if (e.ctrlKey || e.metaKey) {
-      return; // Let browser handle native shortcuts
-    }
-    
-    // Send message on Enter (without Shift for new line)
+    if (e.ctrlKey || e.metaKey) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -207,7 +226,6 @@ export default function ChatBot() {
 
   return (
     <div className="chat-container">
-      {/* Sidebar */}
       <aside className="sidebar">
         <button className="new-chat-btn" onClick={clearChat}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -218,12 +236,11 @@ export default function ChatBot() {
         </button>
       </aside>
 
-      {/* Main Chat Area */}
       <main className="main-content">
         <div className="messages-container">
           {messages.length === 0 ? (
             <div className="welcome-screen">
-              <h1>Hi, I'm Ruby! How can I help you?</h1>
+              <h1>Hi, I&apos;m Ruby! How can I help you?</h1>
               <div className="suggestions">
                 <button onClick={() => setInput('Explain quantum computing in simple terms')}>
                   <span className="suggestion-icon">💡</span>
@@ -247,47 +264,44 @@ export default function ChatBot() {
             <div className="messages">
               {messages.map((message, index) => (
                 <div key={index} className={`message ${message.role}`}>
-                  <div className="message-avatar">
-                    {message.role === 'user' ? (
-                      <div className="avatar user-avatar">U</div>
-                    ) : (
-                      <div className="avatar assistant-avatar">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
-                        </svg>
-                      </div>
-                    )}
+                  <div className={`avatar ${message.role === 'user' ? 'user-avatar' : 'assistant-avatar'}`}>
+                    {message.role === 'user' ? 'U' : '✦'}
                   </div>
                   <div className="message-content">
                     <div className="message-role">{message.role === 'user' ? 'You' : 'Ruby'}</div>
                     {message.image && (
                       <div className="message-image">
-                        <img 
-                          src={message.image} 
-                          alt="Shared image"
-                          loading="eager"
-                        />
+                        <img src={message.image} alt="Shared" />
                       </div>
                     )}
-                    <div className="message-text">{message.content}</div>
+                    <div className="message-text">
+                      {message.role === 'assistant' ? (
+                        <ReactMarkdown
+                          components={{
+                            code({ className, children, ...props }) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              const codeString = String(children).replace(/\n$/, '');
+                              if (match) {
+                                return <CodeBlock language={match[1]}>{codeString}</CodeBlock>;
+                              }
+                              return <code className="inline-code" {...props}>{children}</code>;
+                            },
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      ) : message.content}
+                    </div>
                   </div>
                 </div>
               ))}
               {isLoading && messages[messages.length - 1]?.role === 'user' && (
                 <div className="message assistant">
-                  <div className="message-avatar">
-                    <div className="avatar assistant-avatar">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
-                      </svg>
-                    </div>
-                  </div>
+                  <div className="avatar assistant-avatar">✦</div>
                   <div className="message-content">
                     <div className="message-role">Ruby</div>
                     <div className="typing-indicator">
-                      <span></span>
-                      <span></span>
-                      <span></span>
+                      <span></span><span></span><span></span>
                     </div>
                   </div>
                 </div>
@@ -297,23 +311,18 @@ export default function ChatBot() {
           )}
         </div>
 
-        {/* Input Area */}
         <div className="input-container">
-          {/* Document Preview */}
           {uploadedDoc && (
             <div className="document-preview">
               <div className="document-info">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                   <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                  <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
                 <span className="document-name">{uploadedDoc.fileName}</span>
                 <span className="document-size">({Math.round(uploadedDoc.characterCount / 1000)}k chars)</span>
               </div>
-              <button className="remove-doc-btn" onClick={removeDocument} title="Remove document">
+              <button className="remove-doc-btn" onClick={() => setUploadedDoc(null)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -322,11 +331,10 @@ export default function ChatBot() {
             </div>
           )}
           <div className="input-wrapper">
-            {/* Image Preview Inside Input */}
             {pastedImage && (
               <div className="image-preview-inline">
-                <img src={pastedImage.data} alt="Pasted screenshot" />
-                <button className="remove-image-btn" onClick={removeImage} title="Remove image">
+                <img src={pastedImage.data} alt="Pasted" />
+                <button className="remove-image-btn" onClick={() => setPastedImage(null)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -345,7 +353,7 @@ export default function ChatBot() {
               className="upload-btn"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading || isLoading}
-              title="Upload document (PDF, DOCX, TXT, MD)"
+              title="Upload document"
             >
               {isUploading ? (
                 <div className="upload-spinner"></div>
