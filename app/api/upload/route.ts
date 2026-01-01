@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mammoth from 'mammoth';
 
-// Force Node.js runtime for this route
-export const runtime = 'nodejs';
-
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -23,18 +20,11 @@ export async function POST(req: NextRequest) {
     let extractedText = '';
 
     if (fileName.endsWith('.pdf')) {
-      // Dynamic import for pdf-parse to work with serverless
-      try {
-        const pdfParse = (await import('pdf-parse')).default;
-        const pdfData = await pdfParse(buffer);
-        extractedText = pdfData.text;
-      } catch (pdfError) {
-        console.error('PDF parsing error:', pdfError);
-        return NextResponse.json(
-          { error: 'Failed to parse PDF. Please try a different file.' },
-          { status: 400 }
-        );
-      }
+      // PDF parsing is temporarily disabled due to compatibility issues
+      return NextResponse.json(
+        { error: 'PDF upload is temporarily unavailable. Please use DOCX, TXT, or MD files.' },
+        { status: 400 }
+      );
     } else if (fileName.endsWith('.docx')) {
       // Parse Word document
       const result = await mammoth.extractRawText({ buffer });
@@ -44,7 +34,7 @@ export async function POST(req: NextRequest) {
       extractedText = buffer.toString('utf-8');
     } else {
       return NextResponse.json(
-        { error: 'Unsupported file type. Please upload PDF, DOCX, TXT, or MD files.' },
+        { error: 'Unsupported file type. Please upload DOCX, TXT, or MD files.' },
         { status: 400 }
       );
     }

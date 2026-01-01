@@ -1,8 +1,5 @@
 import Groq from 'groq-sdk';
 
-// Force Node.js runtime for this route
-export const runtime = 'nodejs';
-
 interface MessageContent {
   type: 'text' | 'image_url';
   text?: string;
@@ -19,15 +16,6 @@ interface ChatMessage {
 
 export async function POST(req: Request) {
   try {
-    // Check if API key is configured
-    if (!process.env.GROQ_API_KEY) {
-      console.error('GROQ_API_KEY is not configured');
-      return new Response(JSON.stringify({ error: 'API key not configured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
     const groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
     });
@@ -66,21 +54,9 @@ export async function POST(req: Request) {
     // Use vision model if there's an image, otherwise use the text model
     const model = hasImage ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile';
 
-    // System prompt to make Ruby concise and helpful
-    const systemMessage = {
-      role: 'system',
-      content: `You are Ruby, a helpful AI assistant. Follow these guidelines:
-- Be concise and get straight to the point
-- For coding questions: provide the code solution first, then brief explanations if needed
-- Skip verbose problem analysis, key insights, solution strategy sections - just give the answer
-- Use markdown formatting for code blocks with proper language tags (e.g., \`\`\`python)
-- Only provide detailed explanations when explicitly asked
-- Be friendly but efficient`
-    };
-
     const completion = await groq.chat.completions.create({
       model: model,
-      messages: [systemMessage, ...formattedMessages],
+      messages: formattedMessages,
       temperature: 0.7,
       max_tokens: 4096,
       stream: true,
@@ -99,7 +75,6 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
         } catch (error) {
-          console.error('Streaming error:', error);
           controller.error(error);
         }
       },
@@ -113,7 +88,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Chat error:', error);
+    console.error('Error:', error);
     return new Response(JSON.stringify({ error: 'Failed to generate response' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

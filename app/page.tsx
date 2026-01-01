@@ -1,58 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
-// Custom CodeBlock component with copy functionality
-function CodeBlock({ language, children }: { language: string; children: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(children);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [children]);
-
-  return (
-    <div className="code-block-container">
-      <div className="code-block-header">
-        <span className="code-language">{language || 'code'}</span>
-        <button className="copy-button" onClick={handleCopy}>
-          {copied ? (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              Copied!
-            </>
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-              Copy
-            </>
-          )}
-        </button>
-      </div>
-      <SyntaxHighlighter
-        style={oneDark}
-        language={language || 'text'}
-        PreTag="div"
-        customStyle={{
-          margin: 0,
-          borderRadius: '0 0 8px 8px',
-          fontSize: '14px',
-        }}
-      >
-        {children}
-      </SyntaxHighlighter>
-    </div>
-  );
-}
+import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, ClipboardEvent } from 'react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -244,7 +192,7 @@ export default function ChatBot() {
     if (e.ctrlKey || e.metaKey) {
       return; // Let browser handle native shortcuts
     }
-
+    
     // Send message on Enter (without Shift for new line)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -305,7 +253,7 @@ export default function ChatBot() {
                     ) : (
                       <div className="avatar assistant-avatar">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" />
+                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
                         </svg>
                       </div>
                     )}
@@ -314,38 +262,14 @@ export default function ChatBot() {
                     <div className="message-role">{message.role === 'user' ? 'You' : 'Ruby'}</div>
                     {message.image && (
                       <div className="message-image">
-                        <img
-                          src={message.image}
+                        <img 
+                          src={message.image} 
                           alt="Shared image"
                           loading="eager"
                         />
                       </div>
                     )}
-                    <div className="message-text">
-                      {message.role === 'assistant' ? (
-                        <ReactMarkdown
-                          components={{
-                            code({ className, children, ...props }) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              const codeString = String(children).replace(/\n$/, '');
-                              // Check if it's a code block (has language) or inline code
-                              if (match) {
-                                return <CodeBlock language={match[1]}>{codeString}</CodeBlock>;
-                              }
-                              return (
-                                <code className="inline-code" {...props}>
-                                  {children}
-                                </code>
-                              );
-                            },
-                          }}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
-                      ) : (
-                        message.content
-                      )}
-                    </div>
+                    <div className="message-text">{message.content}</div>
                   </div>
                 </div>
               ))}
@@ -354,7 +278,7 @@ export default function ChatBot() {
                   <div className="message-avatar">
                     <div className="avatar assistant-avatar">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" />
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
                       </svg>
                     </div>
                   </div>
