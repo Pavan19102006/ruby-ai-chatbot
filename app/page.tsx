@@ -74,7 +74,6 @@ const MODELS = [
   { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout', provider: 'groq' },
   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', provider: 'groq' },
   { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', provider: 'groq' },
-  { id: 'gemma2-9b-it', name: 'Gemma 2 9B', provider: 'groq' },
   { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', provider: 'groq' },
   // Qwen Models
   { id: 'qwen3-235b-a22b', name: 'Qwen3 235B', provider: 'qwen' },
