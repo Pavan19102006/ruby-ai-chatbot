@@ -75,12 +75,11 @@ const MODELS = [
   { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', provider: 'groq' },
   { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', provider: 'groq' },
   { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', provider: 'groq' },
-  // Qwen Models
+  // Qwen Models (via MuleRouter)
+  { id: 'qwen3-max', name: 'Qwen3 Max', provider: 'qwen' },
   { id: 'qwen3-235b-a22b', name: 'Qwen3 235B', provider: 'qwen' },
   { id: 'qwen3-30b-a3b', name: 'Qwen3 30B', provider: 'qwen' },
   { id: 'qwen3-32b', name: 'Qwen3 32B', provider: 'qwen' },
-  { id: 'qwen-max', name: 'Qwen Max', provider: 'qwen' },
-  { id: 'qwen-plus', name: 'Qwen Plus', provider: 'qwen' },
 ];
 
 export default function ChatBot() {

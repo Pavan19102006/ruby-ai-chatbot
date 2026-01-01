@@ -12,9 +12,9 @@ interface ChatMessage {
   image?: string;
 }
 
-// Qwen API call function
+// MuleRouter/Qwen API call function
 async function callQwenAPI(model: string, messages: ChatMessage[]) {
-  const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+  const response = await fetch('https://api.mulerouter.ai/vendors/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -22,10 +22,13 @@ async function callQwenAPI(model: string, messages: ChatMessage[]) {
     },
     body: JSON.stringify({
       model,
-      messages: messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-      })),
+      messages: [
+        { role: 'system', content: 'You are Ruby, a helpful AI assistant. Be concise and direct. For coding questions, provide code first then brief explanations. Use markdown with proper code blocks.' },
+        ...messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+      ],
       stream: true,
       max_tokens: 4096,
     }),
@@ -65,18 +68,61 @@ export async function POST(req: Request) {
 
     // Route to appropriate provider
     if (provider === 'qwen') {
-      // Use Qwen API
-      const response = await callQwenAPI(model, [
-        { role: 'user', content: systemMessage.content } as ChatMessage,
-        ...formattedMessages,
-      ]);
+      // Use MuleRouter API for Qwen models
+      const response = await callQwenAPI(model, formattedMessages as ChatMessage[]);
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Qwen API error:', errorText);
         throw new Error(`Qwen API error: ${response.status}`);
       }
 
-      // Return the stream directly
-      return new Response(response.body, {
+      // Parse SSE stream and forward
+      const encoder = new TextEncoder();
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            if (!reader) {
+              controller.close();
+              return;
+            }
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  if (data === '[DONE]') {
+                    controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                    continue;
+                  }
+                  try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed.choices?.[0]?.delta?.content || '';
+                    if (content) {
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+                    }
+                  } catch { /* Skip invalid JSON */ }
+                }
+              }
+            }
+            controller.close();
+          } catch (error) {
+            console.error('Stream error:', error);
+            controller.error(error);
+          }
+        },
+      });
+
+      return new Response(stream, {
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
