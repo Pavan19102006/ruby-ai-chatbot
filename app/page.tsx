@@ -67,6 +67,16 @@ function CodeBlock({ language, children }: { language: string; children: string 
   );
 }
 
+// Available models with performance ratings
+const MODELS = [
+  { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Maverick', speed: '3x', desc: 'Fastest, great quality' },
+  { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout', speed: '2x', desc: 'Vision + Text' },
+  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', speed: '1x', desc: 'Most capable' },
+  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', speed: '4x', desc: 'Ultra fast' },
+  { id: 'gemma2-9b-it', name: 'Gemma 2 9B', speed: '3x', desc: 'Google model' },
+  { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', speed: '2x', desc: 'MoE model' },
+];
+
 export default function ChatBot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -74,6 +84,8 @@ export default function ChatBot() {
   const [uploadedDoc, setUploadedDoc] = useState<UploadedDocument | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [pastedImage, setPastedImage] = useState<PastedImage | null>(null);
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -171,7 +183,7 @@ export default function ChatBot() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, model: selectedModel }),
       });
 
       if (!response.ok) throw new Error('Failed to fetch');
@@ -234,6 +246,46 @@ export default function ChatBot() {
           </svg>
           New Chat
         </button>
+
+        {/* Model Selector */}
+        <div className="model-selector">
+          <button
+            className="model-selector-btn"
+            onClick={() => setShowModelSelector(!showModelSelector)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+            </svg>
+            <span className="model-name-display">
+              {MODELS.find(m => m.id === selectedModel)?.name || 'Select Model'}
+            </span>
+            <span className="model-speed-badge">
+              {MODELS.find(m => m.id === selectedModel)?.speed}
+            </span>
+          </button>
+
+          {showModelSelector && (
+            <div className="model-dropdown">
+              {MODELS.map(model => (
+                <button
+                  key={model.id}
+                  className={`model-option ${selectedModel === model.id ? 'selected' : ''}`}
+                  onClick={() => {
+                    setSelectedModel(model.id);
+                    setShowModelSelector(false);
+                  }}
+                >
+                  <div className="model-option-info">
+                    <span className="model-option-name">{model.name}</span>
+                    <span className="model-option-desc">{model.desc}</span>
+                  </div>
+                  <span className="model-speed-badge">{model.speed}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </aside>
 
       <main className="main-content">

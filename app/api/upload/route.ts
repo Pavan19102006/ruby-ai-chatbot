@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-// @ts-expect-error - pdf-parse types issue
-import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
 export async function POST(req: NextRequest) {
@@ -18,6 +16,8 @@ export async function POST(req: NextRequest) {
     let extractedText = '';
 
     if (fileName.endsWith('.pdf')) {
+      // Use dynamic import for pdf-parse
+      const pdfParse = await import('pdf-parse').then(m => m.default || m);
       const pdfData = await pdfParse(buffer);
       extractedText = pdfData.text;
     } else if (fileName.endsWith('.docx')) {

@@ -15,7 +15,7 @@ interface ChatMessage {
 export async function POST(req: Request) {
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const { messages } = await req.json();
+    const { messages, model: requestedModel } = await req.json();
 
     const hasImage = messages.some((msg: ChatMessage) => msg.image);
 
@@ -32,7 +32,8 @@ export async function POST(req: Request) {
       return { role: msg.role, content: msg.content };
     });
 
-    const model = hasImage ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile';
+    // Use requested model or default
+    const model = requestedModel || 'meta-llama/llama-4-maverick-17b-128e-instruct';
 
     const systemMessage = {
       role: 'system',
