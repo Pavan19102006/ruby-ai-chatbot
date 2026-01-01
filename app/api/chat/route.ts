@@ -1,5 +1,8 @@
 import Groq from 'groq-sdk';
 
+// Force Node.js runtime for this route
+export const runtime = 'nodejs';
+
 interface MessageContent {
   type: 'text' | 'image_url';
   text?: string;
@@ -16,6 +19,15 @@ interface ChatMessage {
 
 export async function POST(req: Request) {
   try {
+    // Check if API key is configured
+    if (!process.env.GROQ_API_KEY) {
+      console.error('GROQ_API_KEY is not configured');
+      return new Response(JSON.stringify({ error: 'API key not configured' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
     });
@@ -87,6 +99,7 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
         } catch (error) {
+          console.error('Streaming error:', error);
           controller.error(error);
         }
       },
@@ -100,7 +113,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Chat error:', error);
     return new Response(JSON.stringify({ error: 'Failed to generate response' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mammoth from 'mammoth';
 
-// Custom PDF text extraction that doesn't rely on pdf-parse's buggy import
-async function extractPdfText(buffer: Buffer): Promise<string> {
-  // Use pdf-parse's underlying function directly to avoid the test file loading bug
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdf = require('pdf-parse/lib/pdf-parse');
-  const data = await pdf(buffer);
-  return data.text;
-}
+// Force Node.js runtime for this route
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,8 +23,18 @@ export async function POST(req: NextRequest) {
     let extractedText = '';
 
     if (fileName.endsWith('.pdf')) {
-      // Parse PDF using custom function that avoids the test file bug
-      extractedText = await extractPdfText(buffer);
+      // Dynamic import for pdf-parse to work with serverless
+      try {
+        const pdfParse = (await import('pdf-parse')).default;
+        const pdfData = await pdfParse(buffer);
+        extractedText = pdfData.text;
+      } catch (pdfError) {
+        console.error('PDF parsing error:', pdfError);
+        return NextResponse.json(
+          { error: 'Failed to parse PDF. Please try a different file.' },
+          { status: 400 }
+        );
+      }
     } else if (fileName.endsWith('.docx')) {
       // Parse Word document
       const result = await mammoth.extractRawText({ buffer });
