@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+// @ts-expect-error - pdf-parse types issue
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
