@@ -52,11 +52,23 @@ export async function POST(req: Request) {
     });
 
     // Use vision model if there's an image, otherwise use the text model
-    const model = hasImage ? 'llama-3.2-90b-vision-preview' : 'llama-3.3-70b-versatile';
+    const model = hasImage ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile';
+
+    // System prompt to make Ruby concise and helpful
+    const systemMessage = {
+      role: 'system',
+      content: `You are Ruby, a helpful AI assistant. Follow these guidelines:
+- Be concise and get straight to the point
+- For coding questions: provide the code solution first, then brief explanations if needed
+- Skip verbose problem analysis, key insights, solution strategy sections - just give the answer
+- Use markdown formatting for code blocks with proper language tags (e.g., \`\`\`python)
+- Only provide detailed explanations when explicitly asked
+- Be friendly but efficient`
+    };
 
     const completion = await groq.chat.completions.create({
       model: model,
-      messages: formattedMessages,
+      messages: [systemMessage, ...formattedMessages],
       temperature: 0.7,
       max_tokens: 4096,
       stream: true,
