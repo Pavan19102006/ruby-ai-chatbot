@@ -12,10 +12,30 @@ interface ChatMessage {
   image?: string;
 }
 
+// Qwen API call function
+async function callQwenAPI(model: string, messages: ChatMessage[]) {
+  const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.QWEN_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      stream: true,
+      max_tokens: 4096,
+    }),
+  });
+  return response;
+}
+
 export async function POST(req: Request) {
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const { messages, model: requestedModel } = await req.json();
+    const { messages, model: requestedModel, provider } = await req.json();
 
     const hasImage = messages.some((msg: ChatMessage) => msg.image);
 
@@ -32,7 +52,6 @@ export async function POST(req: Request) {
       return { role: msg.role, content: msg.content };
     });
 
-    // Use requested model or default
     const model = requestedModel || 'meta-llama/llama-4-maverick-17b-128e-instruct';
 
     const systemMessage = {
@@ -44,39 +63,64 @@ export async function POST(req: Request) {
 - Be friendly but efficient`,
     };
 
-    const completion = await groq.chat.completions.create({
-      model,
-      messages: [systemMessage, ...formattedMessages],
-      temperature: 0.7,
-      max_tokens: 4096,
-      stream: true,
-    });
+    // Route to appropriate provider
+    if (provider === 'qwen') {
+      // Use Qwen API
+      const response = await callQwenAPI(model, [
+        { role: 'user', content: systemMessage.content } as ChatMessage,
+        ...formattedMessages,
+      ]);
 
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of completion) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+      if (!response.ok) {
+        throw new Error(`Qwen API error: ${response.status}`);
+      }
+
+      // Return the stream directly
+      return new Response(response.body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    } else {
+      // Use Groq API
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+      const completion = await groq.chat.completions.create({
+        model,
+        messages: [systemMessage, ...formattedMessages],
+        temperature: 0.7,
+        max_tokens: 4096,
+        stream: true,
+      });
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of completion) {
+              const content = chunk.choices[0]?.delta?.content || '';
+              if (content) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+              }
             }
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            controller.close();
+          } catch (error) {
+            controller.error(error);
           }
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        } catch (error) {
-          controller.error(error);
-        }
-      },
-    });
+        },
+      });
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    });
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
   } catch (error) {
     console.error('Error:', error);
     return new Response(JSON.stringify({ error: 'Failed to generate response' }), {

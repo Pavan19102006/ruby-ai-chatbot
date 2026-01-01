@@ -67,14 +67,21 @@ function CodeBlock({ language, children }: { language: string; children: string 
   );
 }
 
-// Available models with performance ratings
+// Available models with provider info
 const MODELS = [
-  { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Maverick', speed: '3x', desc: 'Fastest, great quality' },
-  { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout', speed: '2x', desc: 'Vision + Text' },
-  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', speed: '1x', desc: 'Most capable' },
-  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', speed: '4x', desc: 'Ultra fast' },
-  { id: 'gemma2-9b-it', name: 'Gemma 2 9B', speed: '3x', desc: 'Google model' },
-  { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', speed: '2x', desc: 'MoE model' },
+  // Groq Models
+  { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Maverick', provider: 'groq' },
+  { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout', provider: 'groq' },
+  { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', provider: 'groq' },
+  { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', provider: 'groq' },
+  { id: 'gemma2-9b-it', name: 'Gemma 2 9B', provider: 'groq' },
+  { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', provider: 'groq' },
+  // Qwen Models
+  { id: 'qwen3-235b-a22b', name: 'Qwen3 235B', provider: 'qwen' },
+  { id: 'qwen3-30b-a3b', name: 'Qwen3 30B', provider: 'qwen' },
+  { id: 'qwen3-32b', name: 'Qwen3 32B', provider: 'qwen' },
+  { id: 'qwen-max', name: 'Qwen Max', provider: 'qwen' },
+  { id: 'qwen-plus', name: 'Qwen Plus', provider: 'qwen' },
 ];
 
 export default function ChatBot() {
@@ -180,10 +187,15 @@ export default function ChatBot() {
     setIsLoading(true);
 
     try {
+      const selectedModelInfo = MODELS.find(m => m.id === selectedModel);
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, model: selectedModel }),
+        body: JSON.stringify({
+          messages: newMessages,
+          model: selectedModel,
+          provider: selectedModelInfo?.provider || 'groq'
+        }),
       });
 
       if (!response.ok) throw new Error('Failed to fetch');
@@ -358,8 +370,8 @@ export default function ChatBot() {
 
             {showModelSelector && (
               <div className="model-picker-dropdown">
-                <div className="model-picker-header">Model</div>
-                {MODELS.map(model => (
+                <div className="model-picker-header">Groq Models</div>
+                {MODELS.filter(m => m.provider === 'groq').map(model => (
                   <button
                     key={model.id}
                     className={`model-picker-option ${selectedModel === model.id ? 'selected' : ''}`}
@@ -368,9 +380,20 @@ export default function ChatBot() {
                       setShowModelSelector(false);
                     }}
                   >
-                    <span className="model-picker-name">{model.name}</span>
-                    {model.speed === '4x' && <span className="model-tag new">Fast</span>}
-                    {model.speed === '1x' && <span className="model-tag pro">Pro</span>}
+                    {model.name}
+                  </button>
+                ))}
+                <div className="model-picker-header">Qwen Models</div>
+                {MODELS.filter(m => m.provider === 'qwen').map(model => (
+                  <button
+                    key={model.id}
+                    className={`model-picker-option ${selectedModel === model.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSelectedModel(model.id);
+                      setShowModelSelector(false);
+                    }}
+                  >
+                    {model.name}
                   </button>
                 ))}
               </div>
