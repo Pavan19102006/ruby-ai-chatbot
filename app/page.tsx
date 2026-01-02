@@ -91,9 +91,6 @@ export default function ChatBot() {
   const [pastedImage, setPastedImage] = useState<PastedImage | null>(null);
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [showModelSelector, setShowModelSelector] = useState(false);
-  const [mode, setMode] = useState<'chat' | 'image' | 'video'>('chat');
-  const [generatedContent, setGeneratedContent] = useState<{ type: string; url: string } | null>(null);
-  const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -240,138 +237,30 @@ export default function ChatBot() {
     if (e.ctrlKey || e.metaKey) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      sendMessage();
     }
   };
 
   const clearChat = () => {
     setMessages([]);
     setUploadedDoc(null);
-    setGeneratedContent(null);
-    setGenerationStatus(null);
-  };
-
-  // Generate image or video
-  const generateContent = async () => {
-    if (!input.trim() || isLoading) return;
-
-    setIsLoading(true);
-    setGenerationStatus('Starting generation...');
-    setGeneratedContent(null);
-
-    try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: input.trim(),
-          type: mode,
-          aspectRatio: '16:9',
-          resolution: '2K',
-        }),
-      });
-
-      if (!response.ok) throw new Error('Generation failed');
-
-      const data = await response.json();
-      const taskId = data.taskId;
-
-      setGenerationStatus('Processing...');
-      setInput('');
-
-      // Poll for result
-      let attempts = 0;
-      const maxAttempts = 60; // 1 minute max
-
-      const checkStatus = async () => {
-        if (attempts >= maxAttempts) {
-          setGenerationStatus('Generation timed out. Please try again.');
-          setIsLoading(false);
-          return;
-        }
-
-        try {
-          const statusRes = await fetch(`/api/generate?taskId=${taskId}&type=${mode}`);
-          const statusData = await statusRes.json();
-
-          if (statusData.status === 'completed' || statusData.url) {
-            setGeneratedContent({
-              type: mode,
-              url: statusData.url || statusData.result?.url,
-            });
-            setGenerationStatus(null);
-            setIsLoading(false);
-          } else if (statusData.status === 'failed') {
-            setGenerationStatus('Generation failed. Please try again.');
-            setIsLoading(false);
-          } else {
-            attempts++;
-            setGenerationStatus(`Generating ${mode}... (${attempts}s)`);
-            setTimeout(checkStatus, 1000);
-          }
-        } catch {
-          attempts++;
-          setTimeout(checkStatus, 1000);
-        }
-      };
-
-      checkStatus();
-    } catch (error) {
-      console.error('Generation error:', error);
-      setGenerationStatus('Failed to generate. Please try again.');
-      setIsLoading(false);
-    }
-  };
-
-  // Handle send based on mode
-  const handleSend = () => {
-    if (mode === 'chat') {
-      sendMessage();
-    } else {
-      generateContent();
-    }
   };
 
   return (
     <div className="chat-container">
       <aside className="sidebar">
-        <div className="mode-toggle">
-          <button
-            className={`mode-btn ${mode === 'chat' ? 'active' : ''}`}
-            onClick={() => { setMode('chat'); setGeneratedContent(null); }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            Chat
-          </button>
-          <button
-            className={`mode-btn ${mode === 'image' ? 'active' : ''}`}
-            onClick={() => { setMode('image'); setMessages([]); }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <circle cx="8.5" cy="8.5" r="1.5"></circle>
-              <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-            Image
-          </button>
-          <button
-            className={`mode-btn ${mode === 'video' ? 'active' : ''}`}
-            onClick={() => { setMode('video'); setMessages([]); }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="23 7 16 12 23 17 23 7"></polygon>
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-            </svg>
-            Video
-          </button>
-        </div>
+        <button className="new-chat-btn" onClick={clearChat}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          New Chat
+        </button>
       </aside>
 
       <main className="main-content">
         <div className="messages-container">
-          {mode === 'chat' && messages.length === 0 ? (
+          {messages.length === 0 ? (
             <div className="welcome-screen">
               <h1>Hi, I&apos;m Ruby! How can I help you?</h1>
               <div className="suggestions">
@@ -390,64 +279,6 @@ export default function ChatBot() {
                 <button onClick={() => setInput('What are the best practices for learning a new language?')}>
                   <span className="suggestion-icon">🌍</span>
                   Tips for learning a new language
-                </button>
-              </div>
-            </div>
-          ) : mode === 'image' ? (
-            <div className="generation-screen">
-              <h1>🎨 Image Generation</h1>
-              <p className="generation-subtitle">Describe the image you want to create</p>
-              {generationStatus && (
-                <div className="generation-status">
-                  <div className="spinner"></div>
-                  <span>{generationStatus}</span>
-                </div>
-              )}
-              {generatedContent && generatedContent.type === 'image' && (
-                <div className="generated-result">
-                  <img src={generatedContent.url} alt="Generated" className="generated-image" />
-                  <a href={generatedContent.url} download className="download-btn">
-                    Download Image
-                  </a>
-                </div>
-              )}
-              <div className="suggestions">
-                <button onClick={() => setInput('A futuristic city at sunset with flying cars')}>
-                  <span className="suggestion-icon">🌆</span>
-                  Futuristic city at sunset
-                </button>
-                <button onClick={() => setInput('A magical forest with glowing mushrooms')}>
-                  <span className="suggestion-icon">🍄</span>
-                  Magical forest
-                </button>
-              </div>
-            </div>
-          ) : mode === 'video' ? (
-            <div className="generation-screen">
-              <h1>🎬 Video Generation</h1>
-              <p className="generation-subtitle">Describe the video you want to create</p>
-              {generationStatus && (
-                <div className="generation-status">
-                  <div className="spinner"></div>
-                  <span>{generationStatus}</span>
-                </div>
-              )}
-              {generatedContent && generatedContent.type === 'video' && (
-                <div className="generated-result">
-                  <video src={generatedContent.url} controls className="generated-video" />
-                  <a href={generatedContent.url} download className="download-btn">
-                    Download Video
-                  </a>
-                </div>
-              )}
-              <div className="suggestions">
-                <button onClick={() => setInput('A cat playing with a ball of yarn')}>
-                  <span className="suggestion-icon">🐱</span>
-                  Cat playing with yarn
-                </button>
-                <button onClick={() => setInput('Ocean waves crashing on a beach at sunset')}>
-                  <span className="suggestion-icon">🌊</span>
-                  Ocean sunset waves
                 </button>
               </div>
             </div>
