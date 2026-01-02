@@ -3,13 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 interface GenerationRequest {
     prompt: string;
     type: 'image' | 'video';
-    aspectRatio?: string;
-    resolution?: string;
+    size?: string;
 }
 
-// Generate image using Nano Banana Pro
-async function generateImage(prompt: string, aspectRatio: string, resolution: string) {
-    const response = await fetch('https://api.mulerouter.ai/vendors/google/v1/nano-banana-pro/generation', {
+// Generate image using Wan 2.6 (Qwen/Alibaba)
+async function generateImage(prompt: string, size: string) {
+    const response = await fetch('https://api.mulerouter.ai/vendors/alibaba/v1/wan2.6-t2i/generation', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -17,14 +16,15 @@ async function generateImage(prompt: string, aspectRatio: string, resolution: st
         },
         body: JSON.stringify({
             prompt,
-            aspect_ratio: aspectRatio || '1:1',
-            resolution: resolution || '2K',
+            negative_prompt: 'low resolution, error, worst quality, low quality, blurry',
+            size: size || '1280*720',
+            n: 1,
         }),
     });
     return response;
 }
 
-// Generate video using Wan2
+// Generate video using Wan2 (Qwen/Alibaba)
 async function generateVideo(prompt: string) {
     const response = await fetch('https://api.mulerouter.ai/vendors/alibaba/v1/wan2/t2v/generation', {
         method: 'POST',
@@ -44,7 +44,7 @@ async function generateVideo(prompt: string) {
 // Check task status
 async function checkTaskStatus(taskId: string, type: 'image' | 'video') {
     const endpoint = type === 'image'
-        ? `https://api.mulerouter.ai/vendors/google/v1/nano-banana-pro/generation/${taskId}`
+        ? `https://api.mulerouter.ai/vendors/alibaba/v1/wan2.6-t2i/generation/${taskId}`
         : `https://api.mulerouter.ai/vendors/alibaba/v1/wan2/t2v/generation/${taskId}`;
 
     const response = await fetch(endpoint, {
@@ -58,7 +58,7 @@ async function checkTaskStatus(taskId: string, type: 'image' | 'video') {
 
 export async function POST(req: NextRequest) {
     try {
-        const { prompt, type, aspectRatio, resolution }: GenerationRequest = await req.json();
+        const { prompt, type, size }: GenerationRequest = await req.json();
 
         if (!prompt) {
             return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
         let response;
         if (type === 'image') {
-            response = await generateImage(prompt, aspectRatio || '1:1', resolution || '2K');
+            response = await generateImage(prompt, size || '1280*720');
         } else if (type === 'video') {
             response = await generateVideo(prompt);
         } else {
